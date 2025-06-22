@@ -4,18 +4,16 @@
 <head>
     <meta charset="utf-8">
     <title>Os 100</title>
-
-    <!-- Favicon externo (sem data-URI) -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-
     <meta name="viewport" content="width=device-width,initial-scale=1">
+
     <style>
         /* ---------- BASE ---------- */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: Arial, sans-serif
+            font-family: Arial, Helvetica, sans-serif
         }
 
         body {
@@ -24,17 +22,43 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
             padding: 1rem;
             min-height: 100vh;
             text-align: center
         }
 
-        h1 {
+        /* ---------- BARRA SUPERIOR ---------- */
+        .topBar {
             width: 100%;
-            font-size: 2rem;
-            font-weight: bold;
+            max-width: 480px;
+            display: flex;
+            align-items: center;
             margin-bottom: 1rem
+        }
+
+        .topBar h1 {
+            flex: 1;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: bold
+        }
+
+        #btnAddPlayer {
+            margin-left: auto;
+            background: #388e3c;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: .5rem 1rem;
+            font-size: 1rem;
+            width: auto;
+            flex-shrink: 0;
+            display: none
+        }
+
+        #btnAddPlayer:hover {
+            background: #2e7d32
         }
 
         /* ---------- CARTÕES ---------- */
@@ -94,6 +118,45 @@
             cursor: not-allowed
         }
 
+        /* ---------- ÍCONES ---------- */
+        .iconBtn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 .25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            width: auto
+        }
+
+        .iconBtn:hover {
+            color: #1976d2
+        }
+
+        .btnRemove:hover {
+            color: #e53935
+        }
+
+        /* ---------- BOTÃO OK ---------- */
+        .btnOk {
+            width: auto !important;
+            background: none;
+            color: #1976d2;
+            border: 2px solid #1976d2;
+            border-radius: 4px;
+            padding: .25rem .8rem;
+            font-weight: bold;
+            cursor: pointer
+        }
+
+        .btnOk:hover {
+            background: #1976d2;
+            color: #fff
+        }
+
         /* ---------- TABELAS ---------- */
         table {
             width: 100%;
@@ -106,7 +169,8 @@
             padding: .75rem;
             border: 1px solid #ccc;
             text-align: center;
-            font-size: 1rem
+            font-size: 1rem;
+            vertical-align: middle
         }
 
         th {
@@ -124,19 +188,23 @@
             margin-right: .5rem
         }
 
-        td button {
-            padding: .5rem 1rem;
-            font-size: .875rem
+        /* célula nome + ícones */
+        .playerCell {
+            display: flex;
+            align-items: center;
+            gap: .25rem;
+            height: 100%
         }
 
-        /* jogar nome editável */
-        .playerName {
-            cursor: pointer;
+        .nameText {
+            flex: 1;
+            text-align: left;
+            cursor: pointer
         }
 
         /* ---------- RESPONSIVO ---------- */
         @media(max-width:600px) {
-            h1 {
+            .topBar h1 {
                 font-size: 1.5rem
             }
 
@@ -160,8 +228,10 @@
 </head>
 
 <body>
-
-    <h1>Os 100</h1>
+    <div class="topBar">
+        <h1>Os 100</h1>
+        <button id="btnAddPlayer" type="button">+1 Jogador</button>
+    </div>
 
     <!-- SETUP -------------------------------------------------------------->
     <section id="setup" class="card">
@@ -190,7 +260,7 @@
     </section>
 
     <!-- HISTÓRICO ---------------------------------------------------------->
-    <section id="history" class="card" style="display:none">
+    <section id="historySection" class="card" style="display:none">
         <h2>Histórico de Rodadas</h2>
 
         <h3>Vencedores</h3>
@@ -209,192 +279,197 @@
     </section>
 
     <script>
+        /* ---------- UTIL ---------- */
+        const $ = id => document.getElementById(id);
+
+        /* ---------- ELEMENTOS ---------- */
+        const setupEl = $('setup'), gameEl = $('game'), histEl = $('historySection'),
+            scoreTbl = $('scoreTable'), winTbl = $('winnerHistory'),
+            roundTbl = $('roundHistory'), btnAdd = $('btnAddPlayer');
+
         /* ---------- ESTADO ---------- */
         let state = {
-            players: [], scores: [], target: 100, penalty: 50,
+            players: [], scores: [], removed: [],
+            target: 100, penalty: 50,
             started: false, roundHistory: [], winnerHistory: {}
         };
 
         /* ---------- PERSISTÊNCIA ---------- */
-        function saveState() { localStorage.setItem('os100_state', JSON.stringify(state)); }
-        function loadState() {
+        const save = () => localStorage.setItem('os100_state', JSON.stringify(state));
+        const load = () => {
             const s = localStorage.getItem('os100_state');
-            if (s) { state = JSON.parse(s); return true; }
-            return false;
-        }
+            if (!s) return false;
+            state = JSON.parse(s);
+            if (!state.removed || state.removed.length !== state.players.length)
+                state.removed = state.players.map(() => false);
+            return true;
+        };
 
-        /* ---------- MOSTRAR/OCULTAR ---------- */
-        function showSetup() {
-            document.getElementById('setup').style.display = 'block';
-            document.getElementById('game').style.display = 'none';
-            document.getElementById('history').style.display = 'none';
-        }
-        function showGame() {
-            document.getElementById('setup').style.display = 'none';
-            document.getElementById('game').style.display = 'block';
-            document.getElementById('history').style.display = 'block';
-        }
+        /* ---------- VISIBILIDADE ---------- */
+        const showSetup = () => { setupEl.style.display = 'block'; gameEl.style.display = histEl.style.display = 'none'; btnAdd.style.display = 'none'; };
+        const showGame = () => { setupEl.style.display = 'none'; gameEl.style.display = histEl.style.display = 'block'; btnAdd.style.display = 'inline-block'; };
 
-        /* ---------- UI DO JOGO ---------- */
+        /* ---------- TABELA PRINCIPAL ---------- */
         function buildGameUI() {
-            const tbl = document.getElementById('scoreTable');
-            tbl.innerHTML = '<tr><th>Jogador</th><th>Pontos</th><th>Adicionar</th></tr>';
-
+            scoreTbl.innerHTML = '<tr><th>Jogador</th><th>Pontos</th><th>Adicionar</th></tr>';
             state.players.forEach((nome, i) => {
+                if (state.removed[i]) return;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-            <td class="playerName" data-idx="${i}" title="Clique para editar">
-                ${nome} &#9998;
-            </td>
-            <td id="score_${i}">${state.scores[i]}</td>
-            <td>
-                <input type="number" enterkeyhint="done" autocomplete="off" placeholder="+/-">
-                <button>OK</button>
-            </td>`;
-
-                // --- pontos ---
-                const inp = tr.querySelector('input'), btn = tr.querySelector('button');
-                btn.onclick = () => { processPoints(i, +inp.value); inp.value = ''; inp.focus(); };
-                inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } });
-
-                // --- edição de nome ---
-                tr.querySelector('.playerName').onclick = () => {
-                    const idx = +tr.querySelector('.playerName').dataset.idx;
-                    const antigo = state.players[idx];
-                    const novo = prompt('Novo nome para o jogador:', antigo)?.trim();
-                    if (!novo || novo === antigo) return;
-
-                    // 1. actualiza o vetor principal
-                    state.players[idx] = novo;
-
-                    // 2. transfere eventuais vitórias
-                    if (state.winnerHistory[antigo]) {
-                        state.winnerHistory[novo] = (state.winnerHistory[novo] || 0) + state.winnerHistory[antigo];
-                        delete state.winnerHistory[antigo];
-                    }
-
-                    // 3. reconstrói tabelas
-                    buildGameUI();
-                    updateWinnerHistory();
-                    updateRoundHistory();
-                    saveState();
-                };
-
-                tbl.appendChild(tr);
+      <td>
+        <div class="playerCell">
+          <span class="nameText">${nome}</span>
+          <button class="iconBtn btnEdit" title="Editar">✏️</button>
+          <button class="iconBtn btnRemove" title="Retirar">🗑️</button>
+        </div>
+      </td>
+      <td id="score_${i}">${state.scores[i]}</td>
+      <td>
+        <input type="number" placeholder="+/-">
+        <button class="btnOk">OK</button>
+      </td>`;
+                const inp = tr.querySelector('input'),
+                    ok = tr.querySelector('.btnOk');
+                ok.onclick = () => { processPoints(i, +inp.value); inp.value = ''; inp.focus(); };
+                inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok.click(); } });
+                tr.querySelector('.btnEdit').onclick = () => renamePlayer(i);
+                tr.querySelector('.btnRemove').onclick = () => removePlayer(i);
+                scoreTbl.appendChild(tr);
             });
-
-            updateRoundHistory(); // garante cabeçalho atualizado
+            updateRoundHistory();
         }
 
-        /* ---------- HISTÓRICOS ---------- */
-        function updateWinnerHistory() {
-            const tbl = document.getElementById('winnerHistory');
-            tbl.innerHTML = '<tr><th>Jogador</th><th>Vitórias</th></tr>';
-            Object.entries(state.winnerHistory).forEach(([p, v]) => {
-                tbl.insertAdjacentHTML('beforeend', `<tr><td>${p}</td><td>${v}</td></tr>`);
-            });
-        }
-        function updateRoundHistory() {
-            const tbl = document.getElementById('roundHistory');
-            const thead = tbl.tHead || tbl.createTHead();
-            const tbody = tbl.tBodies[0] || tbl.createTBody();
+        /* ---------- HISTÓRICO ---------- */
+        const updateWinners = () => {
+            winTbl.innerHTML = '<tr><th>Jogador</th><th>Vitórias</th></tr>';
+            Object.entries(state.winnerHistory)
+                .forEach(([p, v]) => winTbl.insertAdjacentHTML('beforeend', `<tr><td>${p}</td><td>${v}</td></tr>`));
+        };
+        const updateRoundHistory = () => {
+            const thead = roundTbl.tHead || roundTbl.createTHead(),
+                tbody = roundTbl.tBodies[0] || roundTbl.createTBody();
             thead.innerHTML = '';
             const hr = thead.insertRow();
             hr.insertCell().outerHTML = '<th>Rodada</th>';
-            state.players.forEach(p => {
-                const th = document.createElement('th');
-                th.textContent = p;
-                hr.appendChild(th);
-            });
+            state.players.forEach(p => hr.insertCell().outerHTML = `<th>${p}</th>`);
             tbody.innerHTML = '';
             state.roundHistory.forEach(r => {
                 const tr = tbody.insertRow();
                 tr.insertCell().textContent = `Rodada ${r.round}`;
                 r.scores.forEach(s => tr.insertCell().textContent = s);
             });
-        }
+        };
 
         /* ---------- LÓGICA DE PONTUAÇÃO ---------- */
         function processPoints(idx, pts) {
-            if (!pts) return;
+            if (state.removed[idx] || !pts) return;
             const newScore = state.scores[idx] + pts;
-            if (newScore < 0) { alert('Pontuação não pode ficar negativa.'); return; }
+            if (newScore < 0) { alert('Pontuação não pode ser negativa.'); return; }
             state.scores[idx] = newScore;
 
-            /* vitória */
-            if (state.scores[idx] === state.target) {
+            if (newScore === state.target) {              // vitória!
                 alert(`${state.players[idx]} venceu!`);
                 state.winnerHistory[state.players[idx]] = (state.winnerHistory[state.players[idx]] || 0) + 1;
-                state.roundHistory.push({ round: state.roundHistory.length + 1, scores: state.scores.slice() });
-                updateWinnerHistory();
-                updateRoundHistory();
+                state.roundHistory.push({
+                    round: state.roundHistory.length + 1,
+                    scores: state.scores.map((s, i) => state.removed[i] ? '-----' : s)
+                });
+                updateWinners(); updateRoundHistory();
                 state.scores = state.scores.map(() => 0);
-                buildGameUI();
-                saveState();
-                return;
+                buildGameUI(); save(); return;
             }
 
-            /* passou da meta */
-            if (pts > 0 && state.scores[idx] > state.target) {
+            if (pts > 0 && newScore > state.target) {         // passou meta
                 state.scores[idx] = state.penalty;
                 alert(`${state.players[idx]} passou de ${state.target}! Volta para ${state.penalty}.`);
             }
-            document.getElementById(`score_${idx}`).textContent = state.scores[idx];
-            saveState();
+            $('score_' + idx).textContent = state.scores[idx];
+            save();
         }
 
-        /* ---------- BOTÕES PRINCIPAIS ---------- */
-        document.getElementById('btnSetPlayers').onclick = () => {
-            const n = +document.getElementById('numPlayers').value || 0;
-            const div = document.getElementById('playersInputs');
-            div.innerHTML = '';
-            for (let i = 0; i < n; i++) {
-                div.insertAdjacentHTML('beforeend',
-                    `<input type="text" placeholder="Nome do jogador ${i + 1}"><br>`);
+        /* ---------- MANUTENÇÃO DE JOGADORES ---------- */
+        function addPlayer() {
+            /* 1) Nome ----------------------------------------------------------- */
+            const nomeRaw = prompt('Nome do jogador:');
+            if (nomeRaw === null) return;        // cancelado
+            const nome = nomeRaw.trim();
+            if (!nome) { alert('Nome obrigatório.'); return; }
+
+            /* 2) Pontuação inicial --------------------------------------------- */
+            const pontosRaw = prompt('Pontuação inicial (deixe vazio para 0):', '0');
+            if (pontosRaw === null) return;      // cancelado
+            const pts = parseInt(pontosRaw.trim()) || 0;
+            if (pts < 0) { alert('Pontuação não pode ser negativa.'); return; }
+
+            /* adiciona ao estado ---------------------------------------------- */
+            state.players.push(nome);
+            state.scores.push(pts);
+            state.removed.push(false);
+            state.roundHistory.forEach(r => r.scores.push('-----'));
+
+            buildGameUI();
+            save();
+        }
+
+        function renamePlayer(i) {
+            const novo = prompt('Novo nome:', state.players[i])?.trim();
+            if (!novo || novo === state.players[i]) return;
+            const antigo = state.players[i];
+            state.players[i] = novo;
+            if (state.winnerHistory[antigo]) {
+                state.winnerHistory[novo] = (state.winnerHistory[novo] || 0) + state.winnerHistory[antigo];
+                delete state.winnerHistory[antigo];
             }
+            buildGameUI(); updateWinners(); save();
+        }
+        const removePlayer = i => {
+            if (state.removed[i]) return;
+            if (!confirm(`Remover ${state.players[i]} da partida?`)) return;
+            state.removed[i] = true;
+            state.scores[i] = '-----';
+            buildGameUI(); save();
         };
 
-        document.getElementById('startGame').onclick = () => {
-            const inputs = document.querySelectorAll('#playersInputs input');
+        /* ---------- BOTÕES PRINCIPAIS ---------- */
+        $('btnSetPlayers').onclick = () => {
+            const n = +$('numPlayers').value || 0,
+                div = $('playersInputs');
+            div.innerHTML = '';
+            for (let i = 0; i < n; i++)
+                div.insertAdjacentHTML('beforeend', `<input type="text" placeholder="Nome do jogador ${i + 1}"><br>`);
+        };
+
+        $('startGame').onclick = () => {
+            const inputs = [...document.querySelectorAll('#playersInputs input')];
             if (!inputs.length) { alert('Clique em "Definir jogadores" primeiro.'); return; }
-            state.players = [];
-            state.scores = [];
+            Object.assign(state, { players: [], scores: [], removed: [], roundHistory: [], started: true });
             inputs.forEach((inp, j) => {
                 state.players.push(inp.value.trim() || `Jogador ${j + 1}`);
-                state.scores.push(0);
+                state.scores.push(0); state.removed.push(false);
             });
-            state.target = parseInt(document.getElementById('targetScore').value) || 100;
-            state.penalty = parseInt(document.getElementById('penalty').value) || 50;
-            state.started = true;
-            showGame();
-            buildGameUI();
-            updateWinnerHistory();
-            saveState();
+            state.target = +$('targetScore').value || 100;
+            state.penalty = +$('penalty').value || 50;
+            showGame(); buildGameUI(); updateWinners(); save();
         };
 
-        document.getElementById('resetRound').onclick = () => {
+        $('resetRound').onclick = () => {
             if (confirm('Zerar o placar atual?')) {
-                state.scores = state.scores.map(() => 0);
-                buildGameUI();
-                saveState();
+                state.scores = state.scores.map((s, i) => state.removed[i] ? '-----' : 0);
+                buildGameUI(); save();
             }
         };
-        document.getElementById('resetGame').onclick = () => {
+        $('resetGame').onclick = () => {
             if (confirm('Reiniciar e apagar TUDO?')) {
-                localStorage.removeItem('os100_state');
-                location.reload();
+                localStorage.removeItem('os100_state'); location.reload();
             }
         };
+        btnAdd.onclick = addPlayer;
 
         /* ---------- INICIALIZAÇÃO ---------- */
         window.onload = () => {
-            if (loadState() && state.started) {
-                showGame();
-                buildGameUI();
-                updateWinnerHistory();
-            } else {
-                showSetup();
-            }
+            if (load() && state.started) {
+                showGame(); buildGameUI(); updateWinners();
+            } else showSetup();
         };
     </script>
 </body>
