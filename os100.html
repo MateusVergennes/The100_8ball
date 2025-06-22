@@ -5,15 +5,8 @@
     <meta charset="utf-8">
     <title>Os 100</title>
 
-    <!-- Favicon: apenas a bola-8 em SVG (inline) -->
-    <link rel="icon" type="image/svg+xml"
-        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='%23000'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3Ctext x='16' y='20' text-anchor='middle' font-size='8' fill='%23000'%3E8%3C/text%3E%3C/svg%3E">
-
-    <!-- (Opcional) fallback PNG para navegadores antigos -->
-    <!--
-    <link rel="icon" type="image/png" sizes="32x32"
-          href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAALElEQVQoz2NgGAWjYBT+z8DAwMDAf0ECf0HEJ8DE0PgPgN8GI/4DAwMAwHYhBmpxUsYAAAAASUVORK5CYII=">
-    -->
+    <!-- Favicon externo (sem data-URI) -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <style>
@@ -219,11 +212,23 @@
 
         /* ---------- PERSISTÊNCIA ---------- */
         function saveState() { localStorage.setItem('os100_state', JSON.stringify(state)); }
-        function loadState() { const s = localStorage.getItem('os100_state'); if (s) { state = JSON.parse(s); return true; } return false; }
+        function loadState() {
+            const s = localStorage.getItem('os100_state');
+            if (s) { state = JSON.parse(s); return true; }
+            return false;
+        }
 
         /* ---------- MOSTRAR/OCULTAR ---------- */
-        function showSetup() { document.getElementById('setup').style.display = 'block'; document.getElementById('game').style.display = 'none'; document.getElementById('history').style.display = 'none'; }
-        function showGame() { document.getElementById('setup').style.display = 'none'; document.getElementById('game').style.display = 'block'; document.getElementById('history').style.display = 'block'; }
+        function showSetup() {
+            document.getElementById('setup').style.display = 'block';
+            document.getElementById('game').style.display = 'none';
+            document.getElementById('history').style.display = 'none';
+        }
+        function showGame() {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            document.getElementById('history').style.display = 'block';
+        }
 
         /* ---------- UI DO JOGO ---------- */
         function buildGameUI() {
@@ -256,11 +261,20 @@
         }
         function updateRoundHistory() {
             const tbl = document.getElementById('roundHistory');
-            const thead = tbl.tHead || tbl.createTHead(); const tbody = tbl.tBodies[0] || tbl.createTBody();
-            thead.innerHTML = ''; const hr = thead.insertRow(); hr.insertCell().outerHTML = '<th>Rodada</th>';
-            state.players.forEach(p => { const th = document.createElement('th'); th.textContent = p; hr.appendChild(th); });
-            tbody.innerHTML = ''; state.roundHistory.forEach(r => {
-                const tr = tbody.insertRow(); tr.insertCell().textContent = `Rodada ${r.round}`;
+            const thead = tbl.tHead || tbl.createTHead();
+            const tbody = tbl.tBodies[0] || tbl.createTBody();
+            thead.innerHTML = '';
+            const hr = thead.insertRow();
+            hr.insertCell().outerHTML = '<th>Rodada</th>';
+            state.players.forEach(p => {
+                const th = document.createElement('th');
+                th.textContent = p;
+                hr.appendChild(th);
+            });
+            tbody.innerHTML = '';
+            state.roundHistory.forEach(r => {
+                const tr = tbody.insertRow();
+                tr.insertCell().textContent = `Rodada ${r.round}`;
                 r.scores.forEach(s => tr.insertCell().textContent = s);
             });
         }
@@ -277,45 +291,75 @@
                 alert(`${state.players[idx]} venceu!`);
                 state.winnerHistory[state.players[idx]] = (state.winnerHistory[state.players[idx]] || 0) + 1;
                 state.roundHistory.push({ round: state.roundHistory.length + 1, scores: state.scores.slice() });
-                updateWinnerHistory(); updateRoundHistory();
-                state.scores = state.scores.map(() => 0); buildGameUI(); saveState(); return;
+                updateWinnerHistory();
+                updateRoundHistory();
+                state.scores = state.scores.map(() => 0);
+                buildGameUI();
+                saveState();
+                return;
             }
 
             /* passou da meta */
             if (pts > 0 && state.scores[idx] > state.target) {
-                state.scores[idx] = state.penalty; alert(`${state.players[idx]} passou de ${state.target}! Volta para ${state.penalty}.`);
+                state.scores[idx] = state.penalty;
+                alert(`${state.players[idx]} passou de ${state.target}! Volta para ${state.penalty}.`);
             }
-            document.getElementById(`score_${idx}`).textContent = state.scores[idx]; saveState();
+            document.getElementById(`score_${idx}`).textContent = state.scores[idx];
+            saveState();
         }
 
         /* ---------- BOTÕES PRINCIPAIS ---------- */
         document.getElementById('btnSetPlayers').onclick = () => {
             const n = +document.getElementById('numPlayers').value || 0;
-            const div = document.getElementById('playersInputs'); div.innerHTML = '';
-            for (let i = 0; i < n; i++) { div.insertAdjacentHTML('beforeend', `<input type="text" placeholder="Nome do jogador ${i + 1}"><br>`); }
+            const div = document.getElementById('playersInputs');
+            div.innerHTML = '';
+            for (let i = 0; i < n; i++) {
+                div.insertAdjacentHTML('beforeend',
+                    `<input type="text" placeholder="Nome do jogador ${i + 1}"><br>`);
+            }
         };
 
         document.getElementById('startGame').onclick = () => {
             const inputs = document.querySelectorAll('#playersInputs input');
             if (!inputs.length) { alert('Clique em "Definir jogadores" primeiro.'); return; }
-            state.players = []; state.scores = [];
-            inputs.forEach((inp, j) => { state.players.push(inp.value.trim() || `Jogador ${j + 1}`); state.scores.push(0); });
+            state.players = [];
+            state.scores = [];
+            inputs.forEach((inp, j) => {
+                state.players.push(inp.value.trim() || `Jogador ${j + 1}`);
+                state.scores.push(0);
+            });
             state.target = parseInt(document.getElementById('targetScore').value) || 100;
             state.penalty = parseInt(document.getElementById('penalty').value) || 50;
-            state.started = true; showGame(); buildGameUI(); updateWinnerHistory(); saveState();
+            state.started = true;
+            showGame();
+            buildGameUI();
+            updateWinnerHistory();
+            saveState();
         };
 
         document.getElementById('resetRound').onclick = () => {
-            if (confirm('Zerar o placar atual?')) { state.scores = state.scores.map(() => 0); buildGameUI(); saveState(); }
+            if (confirm('Zerar o placar atual?')) {
+                state.scores = state.scores.map(() => 0);
+                buildGameUI();
+                saveState();
+            }
         };
         document.getElementById('resetGame').onclick = () => {
-            if (confirm('Reiniciar e apagar TUDO?')) { localStorage.removeItem('os100_state'); location.reload(); }
+            if (confirm('Reiniciar e apagar TUDO?')) {
+                localStorage.removeItem('os100_state');
+                location.reload();
+            }
         };
 
         /* ---------- INICIALIZAÇÃO ---------- */
         window.onload = () => {
-            if (loadState() && state.started) { showGame(); buildGameUI(); updateWinnerHistory(); }
-            else { showSetup(); }
+            if (loadState() && state.started) {
+                showGame();
+                buildGameUI();
+                updateWinnerHistory();
+            } else {
+                showSetup();
+            }
         };
     </script>
 </body>
