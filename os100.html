@@ -396,10 +396,24 @@
             if (!nome) { alert('Nome obrigatório.'); return; }
 
             /* 2) Pontuação inicial --------------------------------------------- */
-            const pontosRaw = prompt('Pontuação inicial (deixe vazio para 0):', '0');
-            if (pontosRaw === null) return;      // cancelado
-            const pts = parseInt(pontosRaw.trim()) || 0;
-            if (pts < 0) { alert('Pontuação não pode ser negativa.'); return; }
+            const max = state.target;
+            let pts = null;
+
+            while (true) {
+                const pontosRaw = prompt(`Pontuação inicial (0 a ${max}):`, '0');
+                if (pontosRaw === null) return;      // cancelado
+
+                pts = parseInt(pontosRaw.trim(), 10);
+                if (isNaN(pts)) {
+                    alert('Valor inválido! Digite um número.');
+                    continue;
+                }
+                if (pts < 0 || pts > max) {
+                    alert(`Valor fora do intervalo! Digite um número entre 0 e ${max}.`);
+                    continue;
+                }
+                break; // válido
+            }
 
             /* adiciona ao estado ---------------------------------------------- */
             state.players.push(nome);
