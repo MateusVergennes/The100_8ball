@@ -129,6 +129,11 @@
             font-size: .875rem
         }
 
+        /* jogar nome editável */
+        .playerName {
+            cursor: pointer;
+        }
+
         /* ---------- RESPONSIVO ---------- */
         @media(max-width:600px) {
             h1 {
@@ -234,21 +239,51 @@
         function buildGameUI() {
             const tbl = document.getElementById('scoreTable');
             tbl.innerHTML = '<tr><th>Jogador</th><th>Pontos</th><th>Adicionar</th></tr>';
+
             state.players.forEach((nome, i) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-            <td>${nome}</td>
+            <td class="playerName" data-idx="${i}" title="Clique para editar">
+                ${nome} &#9998;
+            </td>
             <td id="score_${i}">${state.scores[i]}</td>
             <td>
                 <input type="number" enterkeyhint="done" autocomplete="off" placeholder="+/-">
                 <button>OK</button>
             </td>`;
+
+                // --- pontos ---
                 const inp = tr.querySelector('input'), btn = tr.querySelector('button');
                 btn.onclick = () => { processPoints(i, +inp.value); inp.value = ''; inp.focus(); };
                 inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } });
+
+                // --- edição de nome ---
+                tr.querySelector('.playerName').onclick = () => {
+                    const idx = +tr.querySelector('.playerName').dataset.idx;
+                    const antigo = state.players[idx];
+                    const novo = prompt('Novo nome para o jogador:', antigo)?.trim();
+                    if (!novo || novo === antigo) return;
+
+                    // 1. actualiza o vetor principal
+                    state.players[idx] = novo;
+
+                    // 2. transfere eventuais vitórias
+                    if (state.winnerHistory[antigo]) {
+                        state.winnerHistory[novo] = (state.winnerHistory[novo] || 0) + state.winnerHistory[antigo];
+                        delete state.winnerHistory[antigo];
+                    }
+
+                    // 3. reconstrói tabelas
+                    buildGameUI();
+                    updateWinnerHistory();
+                    updateRoundHistory();
+                    saveState();
+                };
+
                 tbl.appendChild(tr);
             });
-            updateRoundHistory();
+
+            updateRoundHistory(); // garante cabeçalho atualizado
         }
 
         /* ---------- HISTÓRICOS ---------- */
